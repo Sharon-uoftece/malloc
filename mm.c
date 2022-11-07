@@ -74,7 +74,7 @@ freeBlock* freeList[LISTSIZE];
  **********************************************************/
 int findLocationInFreeList (size_t size)
 {
-    int count;
+    int count = 0;
     while (size != 0 ) {
         size >> 1;
         count ++;
@@ -207,7 +207,8 @@ void addToFreeList(freeBlock* block) {
  **********************************************************/
  int mm_init(void) 
  {
-   if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
+    printf("Size of free block: %d", sizeof(freeBlock));  
+    if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
          return -1;
      PUT((char *) heap_listp, 0);                         // alignment padding
      PUT((char *)heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
@@ -215,8 +216,10 @@ void addToFreeList(freeBlock* block) {
      PUT((char *)heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
      heap_listp = (char *) heap_listp + DSIZE;
 
-     for (int i = 0; i < LISTSIZE; )
+     for (int i = 0; i < LISTSIZE; i++) {
         freeList[i] = NULL;
+     }
+
      return 0;
  }
 
@@ -313,11 +316,11 @@ void * find_fit(size_t asize)
         if (freeList[i] != NULL) { 
             freeBlock* curr = freeList[i];
             while (curr != NULL) {
-                int currSize = GET_SIZE(HDRP(curr));
+                int currSize = GET_SIZE(HDRP(curr)) - DSIZE;
                 if (currSize >= asize + 2 * DSIZE) {
                     removeFromFreeList(curr);
-                    int extraSpace = currSize - asize;
-                    void* extraPtr = curr + asize;
+                    int extraSpace = currSize - asize - DSIZE;
+                    void* extraPtr = curr + asize + DSIZE;
                     unplace(extraPtr, extraSpace);
                     addToFreeList(extraPtr);
                     place(curr, asize);
@@ -354,12 +357,12 @@ void mm_free(void *bp)
         return;
     }
 
-    size_t size = GET_SIZE(HDRP(bp));
+    size_t size = GET_SIZE(HDRP(bp)) - DSIZE;
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
     bp = coalesce(bp);
     addToFreeList((freeBlock*) bp);
-    
+
     return;
 }
 /**********************************************************
